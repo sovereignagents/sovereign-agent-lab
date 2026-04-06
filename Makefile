@@ -97,8 +97,13 @@ check-env:
 		echo "  Then open .env and paste your NEBIUS_KEY."; \
 		exit 1; \
 	fi
-	@if grep -q "sk-your-key-here" .env 2>/dev/null; then \
-		echo "$(RED)✗ .env still has the placeholder key.$(RESET)"; \
+	@if ! grep -Eq '^NEBIUS_KEY=' .env 2>/dev/null; then \
+		echo "$(RED)✗ NEBIUS_KEY is missing from .env.$(RESET)"; \
+		echo "  Add a line like: $(GREEN)NEBIUS_KEY=your-real-key$(RESET)"; \
+		exit 1; \
+	fi
+	@if grep -Eq '^NEBIUS_KEY=(|sk-your-key-here)$$' .env 2>/dev/null; then \
+		echo "$(RED)✗ NEBIUS_KEY is empty or still set to the placeholder.$(RESET)"; \
 		echo "  Open .env and replace 'sk-your-key-here' with your real Nebius key."; \
 		exit 1; \
 	fi
