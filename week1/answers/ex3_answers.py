@@ -42,47 +42,75 @@ Conversation 3 (out of scope):
 # ── Conversation 1: Happy path ─────────────────────────────────────────────
 
 CONVERSATION_1_TRACE = """
-PASTE YOUR rasa shell TERMINAL OUTPUT HERE
+Your input ->  calling to confirm a booking                                                                                              
+How many guests are you confirming for tonight's event?
+Your input ->  160 guests                                                                                                                
+And how many of those guests will need vegan meals?
+Your input ->  about 50 need vegan                                                                                                       
+Ok, I am updating guest_count to 160 respectively.
+What deposit amount in GBP are you proposing to secure the booking?
+Your input ->  £200 deposit                                                                                                              
+Thank you — booking confirmed. 160 guests, 50 requiring vegan meals, £200 deposit accepted. I'll send written confirmation to the organiser shortly.
+What else can I help you with?
+Your input ->  
 """
 
-CONVERSATION_1_OUTCOME = "FILL_ME_IN"   # "confirmed" or "escalated"
+CONVERSATION_1_OUTCOME = "confirmed"   # "confirmed" or "escalated"
 
 # ── Conversation 2: Deposit too high ───────────────────────────────────────
 
 CONVERSATION_2_TRACE = """
-PASTE YOUR rasa shell TERMINAL OUTPUT HERE
+Your input ->  calling to confirm a booking                                                                                              
+How many guests are you confirming for tonight's event?
+Your input ->  160 guests                                                                                                                
+And how many of those guests will need vegan meals?
+Your input ->  about 50 need vegan                                                                                                       
+Ok, I am updating guest_count to 160 respectively.
+What deposit amount in GBP are you proposing to secure the booking?
+Your input ->  £500 deposit                                                                                                              
+I need to check one thing with the organiser before I can confirm. The issue is: a deposit of £500 exceeds the organiser's authorised limit of £300. Can I call you back within 15 minutes?
+What else can I help you with?                                                                                                                        
 """
 
-CONVERSATION_2_OUTCOME = "FILL_ME_IN"   # "confirmed" or "escalated"
-CONVERSATION_2_REASON  = "FILL_ME_IN"   # the reason the agent gave for escalating
+CONVERSATION_2_OUTCOME = "escalated"   # "confirmed" or "escalated"
+CONVERSATION_2_REASON  = "The issue is: a deposit of £500 exceeds the organiser's authorised limit of £300."   # the reason the agent gave for escalating
 
 # ── Conversation 3: Out of scope ───────────────────────────────────────────
 
 CONVERSATION_3_TRACE = """
-PASTE YOUR rasa shell TERMINAL OUTPUT HERE
+Your input ->  calling to confirm a booking                                                                                              
+How many guests are you confirming for tonight's event?
+Your input ->  160 guests                                                                                                                
+And how many of those guests will need vegan meals?
+Your input ->  can you arrange parking for the speakers?                                                                                 
+I can only help with confirming tonight's venue booking. For anything else, please contact the event organiser directly.
+Let's continue with confirm booking.
+And how many of those guests will need vegan meals?
+Your input ->  
 """
 
 # Describe what CALM did after the out-of-scope message. Min 20 words.
 CONVERSATION_3_WHAT_HAPPENED = """
-FILL ME IN
+CALM recognied that the user's request about parking was out of scope. It responded with a polite refusal, then steered the conversation back to the expected flow.
 """
 
 # Compare Rasa CALM's handling of the out-of-scope request to what
 # LangGraph did in Exercise 2 Scenario 3. Min 40 words.
 OUT_OF_SCOPE_COMPARISON = """
-FILL ME IN
+LangGraph's agent gave gave a vague response asking for more details while CALM explicitly said it only handles venue bookings and suggested contacting the organiser.
+CALM's response is better for a real booking assistant because it clearly sets expectations and guides the user. LangGraph's response is more open-ended and could lead to confusion or a breakdown in the conversation if the user doesn't know what details to provide.
 """
 
 # ── Task B: Cutoff guard ───────────────────────────────────────────────────
 
-TASK_B_DONE = None   # True or False
+TASK_B_DONE = True   # True or False
 
 # List every file you changed.
-TASK_B_FILES_CHANGED = []
+TASK_B_FILES_CHANGED = ["exercise3_rasa/actions/actions.py"]
 
 # How did you test that it works? Min 20 words.
 TASK_B_HOW_YOU_TESTED = """
-FILL ME IN
+I uncommented the cutoff guard code in ActionValidateBooking, my computer's clock was likely 18:00. The agent escalated as expected with the correct reason. However, I was expecting to excalate after I said that I want to confirm the booking for tonight, nt avfter asking me all the clarifying questions about number of guests and vegan options.
 """
 
 # ── CALM vs Old Rasa ───────────────────────────────────────────────────────
@@ -101,12 +129,17 @@ FILL ME IN
 # Min 30 words.
 
 CALM_VS_OLD_RASA = """
-FILL ME IN
-
-Think about:
-- What does the LLM handle now that Python handled before?
-- What does Python STILL handle, and why (hint: business rules)?
-- Is there anything you trusted more in the old approach?
+CALM lets the LLM handle what Python used to do: parsing natural language into 
+slot values. In old Rasa, you needed regex in a ValidateBookingConfirmationForm 
+to turn "about 160 people" into 160.0. In CALM, from_llm mappings handle this 
+automatically. Python still handles the business rules — checking deposit limits, 
+capacity ceilings, and vegan ratios — because those are deterministic constraints 
+that must never be negotiated or reasoned around. The cost is that you now depend 
+on an LLM for slot extraction, which is probabilistic rather than deterministic. 
+With regex, "160" always parsed to 160.0. With an LLM, it almost always works but 
+there is no guarantee. The gain is far less code and far more flexibility — users 
+can say "one-sixty", "about 160", or "we're expecting 160" and it all works 
+without writing a single regex pattern.
 """
 
 # ── The setup cost ─────────────────────────────────────────────────────────
@@ -120,10 +153,12 @@ Think about:
 # Min 40 words.
 
 SETUP_COST_VALUE = """
-FILL ME IN
-
-Be specific. What can the Rasa CALM agent NOT do that LangGraph could?
-Is that a feature or a limitation for the confirmation use case?
-Think about: can the CALM agent improvise a response it wasn't trained on?
-Can it call a tool that wasn't defined in flows.yml?
+The CALM agent cannot improvise. It cannot call a tool that was not defined in 
+flows.yml, it cannot invent a new conversation path, and it cannot decide on its 
+own to check the weather or generate a flyer. For the confirmation use case, this 
+is a feature, not a limitation. When a pub manager calls to confirm a booking and 
+agree deposit terms, every word has financial and legal weight. The agent must 
+collect exactly the right information, apply exactly the right constraints, and 
+never go off-script. The setup cost of CALM — config files, training, two terminals, a licence — 
+buys you predictability and auditability that LangGraph cannot provide.
 """
