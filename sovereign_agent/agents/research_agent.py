@@ -3,73 +3,81 @@ sovereign_agent/agents/research_agent.py
 =========================================
 The Research Agent for your Sovereign Agent project.
 
-This is the file that grows each week:
+This is the file that grows across the module:
 
-  Week 1 (now):    Basic ReAct loop with 4 venue tools
-  Week 2:          Add real web search and file operation tools
-  Week 3:          Split into Planner (DeepSeek R1) + Executor (Llama 70B)
-  Week 4:          Add CLAUDE.md memory so the agent remembers past sessions
-  Week 5:          Add observability, cost tracking, and safety guardrails
+  Week 1 (now):      Basic ReAct loop with 4 venue tools
+  Week 2 session:    Add real web search and file operation tools
+                     (feeds into the final assignment — no separate homework)
+  Final assignment:  Becomes the executor inside PyNanoClaw. A planner
+                     runs upstream, memory runs alongside, a handoff bridge
+                     routes human-conversation tasks to the Rasa half.
+                     Observability, cost tracking, and safety guardrails land.
 
 The public interface — run_research_agent(task, max_turns) → dict — stays the
-same across all weeks. Week 2's code imports and calls this function exactly
-as Week 1 leaves it. You add capability inside; the callers don't change.
+same throughout. Later code imports and calls this function exactly as Week 1
+leaves it. You add capability inside; the callers don't change.
 
-HOW TO USE
-----------
-Import and call from exercise files:
+────────────────────────────────────────────────────────────────────────────
+NOTE ON THE MODEL CHOICE  (updated 2026-04-09)
+────────────────────────────────────────────────────────────────────────────
+The first version of this file used meta-llama/Llama-3.3-70B-Instruct. That
+model is excellent at reasoning but, on the Nebius Token Factory endpoint,
+it does not reliably emit native `tool_calls` objects — it tends to emit the
+tool call as a stringified JSON blob inside `content`, which LangGraph's
+ReAct loop cannot consume directly. You would see traces like this:
 
-    from sovereign_agent.agents.research_agent import run_research_agent
+    [AI] "{\"type\": \"function\", \"name\": \"check_pub_availability\", ...}"
+    ⚠️  No tool calls were made.
 
-    result = run_research_agent(
-        task="Find a pub for 160 vegan guests tonight.",
-        max_turns=8,
-    )
-    print(result["final_answer"])
-    print(result["tool_calls_made"])
+We have switched to `Qwen/Qwen3-32B`, which natively supports the OpenAI
+tool-calling spec on Nebius and works out of the box with `create_react_agent`.
 
-ADDING TOOLS IN FUTURE WEEKS
------------------------------
-To add a new tool, import it and add it to the TOOLS list below.
-The agent picks up the new capability automatically — no other changes needed.
-
-    # Week 2 example:
-    from sovereign_agent.tools.web_search import search_web
-    TOOLS = [
-        check_pub_availability,
-        get_edinburgh_weather,
-        calculate_catering_cost,
-        generate_event_flyer,
-        search_web,           # ← just add here
-    ]
+We have also made the result parser below robust to BOTH formats, so if you
+experiment with a different model and it emits the older stringified-JSON
+shape, your trace will still be captured correctly instead of coming back
+empty. That defensive parsing is how the Week-2/3/4 code will stay stable
+as you try different models.
+────────────────────────────────────────────────────────────────────────────
 """
+
+from __future__ import annotations
 
 import json
 import os
+
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 
-# Import tools from the shared tool layer
-# This import path is why the project structure matters —
-# sovereign_agent/ is a Python package that can be imported from anywhere
 from sovereign_agent.tools.venue_tools import (
-    check_pub_availability,
-    get_edinburgh_weather,
     calculate_catering_cost,
+    check_pub_availability,
     generate_event_flyer,
+    get_edinburgh_weather,
 )
 
 load_dotenv()
 
 # ─── Model ────────────────────────────────────────────────────────────────────
-# Week 1: single model handles everything
-# Week 3: this gets split into llm_planner (DeepSeek R1) and llm_executor (Llama 70B)
+# Qwen3-32B on Nebius natively supports tool_calls. If you want to try another
+# model, good alternatives that also emit correct tool_calls on Nebius and
+# survived the 2026-04-13 deprecation round are:
+#   - nvidia/nemotron-3-super-120b-a12b
+#   - Qwen/Qwen3-Next-80B-A3B-Thinking
+#
+# Avoid:
+#   - meta-llama/Llama-3.3-70B-Instruct for anything that needs tools on
+#     this provider — see note at the top of the file.
+#   - deepseek-ai/DeepSeek-R1-0528 — deprecated 2026-04-13, no longer served.
+#   - Any model suffixed `_fast` in the Qwen, Llama, or DeepSeek families —
+#     also deprecated 2026-04-13. See CHANGELOG.md §Fixed for the full list.
+
+RESEARCH_MODEL = os.getenv("RESEARCH_MODEL", "Qwen/Qwen3-32B")
 
 llm = ChatOpenAI(
     base_url="https://api.tokenfactory.nebius.com/v1/",
     api_key=os.getenv("NEBIUS_KEY"),
-    model="meta-llama/Llama-3.3-70B-Instruct",
+    model=RESEARCH_MODEL,
     temperature=0,
 )
 
@@ -85,7 +93,6 @@ TOOLS = [
 ]
 
 # Build the agent once at module load time.
-# Rebuilding it on every call would be wasteful.
 _agent = create_react_agent(llm, TOOLS)
 _tool_map = {tool.name: tool for tool in TOOLS}
 
@@ -123,14 +130,14 @@ def run_research_agent(task: str, max_turns: int = 8) -> dict:
           final_answer:    str — the agent's final response
           tool_calls_made: list of dicts — each tool call with name and args
           full_trace:      list of dicts — every message in the conversation
-          success:         bool — True if agent gave a final answer (not max_turns)
+          success:         bool — True if agent gave a final answer
 
-    This return shape is the contract that Week 2+ code will depend on.
+    This return shape is the contract that Week 2+ code depends on.
     Do not change the key names.
     """
     result = _agent.invoke(
         {"messages": [("user", task)]},
-        config={"recursion_limit": max_turns * 2},  # LangGraph uses steps, not turns
+        config={"recursion_limit": max_turns * 2},
     )
 
     tool_calls_made = []
@@ -139,7 +146,7 @@ def run_research_agent(task: str, max_turns: int = 8) -> dict:
     saw_tool_result = False
 
     for m in result["messages"]:
-        role    = getattr(m, "type", "unknown")
+        msg_type = getattr(m, "type", "unknown")
         content = m.content
 
         # Some models return tool calls as structured blocks, others as a JSON string.
@@ -188,8 +195,8 @@ def run_research_agent(task: str, max_turns: int = 8) -> dict:
             full_trace.append({"role": "ai", "content": final_answer})
 
     return {
-        "final_answer":    final_answer,
+        "final_answer": final_answer,
         "tool_calls_made": tool_calls_made,
-        "full_trace":      full_trace,
-        "success":         bool(final_answer),
+        "full_trace": full_trace,
+        "success": bool(final_answer),
     }

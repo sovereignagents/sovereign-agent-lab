@@ -24,7 +24,9 @@ instructor's run says fail, that is an integrity concern.
 **What is checked:**
 - Output JSON files exist and are valid (proves you ran the code)
 - `sovereign_agent/` modules import without errors
-- `generate_event_flyer` in Exercise 2 does not return the stub string
+- `generate_event_flyer` in Exercise 2 returns a valid success dict
+  (either live-provider mode or the deterministic placeholder fallback —
+  both pass; see `CHANGELOG.md` §Changed for why this changed)
 - The cutoff guard in `exercise3_rasa/actions/actions.py` is uncommented
 - All answer files have been filled in (no placeholder text remaining)
 
@@ -90,31 +92,26 @@ is necessary but not sufficient for a good score.
 
 ## Progression
 
-This assignment is the foundation of your Sovereign Agent. The code you write in
-`sovereign_agent/` will be extended in every subsequent week:
+This assignment is the foundation of **PyNanoClaw**, the hybrid agent
+system you will build across the module. The code you write in
+`sovereign_agent/` and `exercise3_rasa/` will be extended in the final
+consolidated assignment (released 2026-04-18), which merges both halves
+into one system: planner/executor split upstream of the research loop,
+memory, a handoff bridge between the two halves, observability, and an
+optional voice pipeline. See `CHANGELOG.md` §Added for the course
+structure change and `PROGRESS.md` for the full architecture diagram.
 
-| Week | What gets added |
-|---|---|
-| 2 | Real web search + file operation tools wired to your research agent |
-| 3 | Planner-Executor architecture replacing your single-loop agent |
-| 4 | CLAUDE.md memory and a vector store |
-| 5 | Observability, evaluation, and your live demo |
+If you submit a poorly implemented `research_agent.py` or a broken
+`exercise3_rasa/` this week, you start the final assignment with broken
+foundations. There is no "redo from scratch" — both halves get composed
+into PyNanoClaw, and both need to work.
 
-If you submit a poorly implemented `research_agent.py` this week, you start Week 2
-with broken foundations. There is no "redo from scratch" in Week 3.
-
-**Choose your track now** (you can change before Week 3):
-
-- **Track A — OpenClaw Automator**: Your sovereign agent will be a headless,
-  autonomous loop that responds to events and works without supervision.
-  Starting point: `sovereign_agent/agents/research_agent.py`
-
-- **Track B — Rasa Digital Employee**: Your sovereign agent will be a structured,
-  voice-capable conversational agent with auditable business logic.
-  Starting point: `exercise3_rasa/` becomes your production agent.
-
-Both tracks complete all Week 1 exercises. Track selection affects how you
-extend the work in Weeks 2–5.
+This is important: **everyone builds both halves**. There are no tracks
+to pick between. The earlier version of this module split students into
+an "OpenClaw Automator" track and a "Rasa Digital Employee" track; that
+split has been removed. The core lesson of the module is that real agent
+systems combine open-ended reasoning with structured, auditable logic —
+you only learn that by building both and seeing where each belongs.
 
 ---
 

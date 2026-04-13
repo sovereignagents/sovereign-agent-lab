@@ -34,10 +34,41 @@ MCP_VALUE_PROPOSITION = """
 MCP is useful not just because the tools live in a separate file, but because they become a shared service other agents can connect to. The main advantage is that I can change the tool server in one place and the client behaviour updates without rewriting the agent code.
 """
 
-# ── Week 5 architecture ────────────────────────────────────────────────────
-# Describe your full sovereign agent at Week 5 scale.
-# At least 5 bullet points. Each bullet must be a complete sentence
-# naming a component and explaining why that component does that job.
+# ── PyNanoClaw architecture — SPECULATION QUESTION ─────────────────────────
+#
+# (The variable below is still called WEEK_5_ARCHITECTURE because the
+# grader reads that exact name. Don't rename it — but read the updated
+# prompt: the question is now about PyNanoClaw, the hybrid system the
+# final assignment will have you build.)
+#
+# This is a forward-looking, speculative question. You have NOT yet seen
+# the material that covers the planner/executor split, memory, or the
+# handoff bridge in detail — that is what the final assignment (releases
+# 2026-04-18) is for. The point of asking it here is to check that you
+# have read PROGRESS.md and can imagine how the Week 1 pieces grow into
+# PyNanoClaw.
+#
+# Read PROGRESS.md in the repo root. Then write at least 5 bullet points
+# describing PyNanoClaw as you imagine it at final-assignment scale.
+#
+# Each bullet should:
+#   - Name a component (e.g. "Planner", "Memory store", "Handoff bridge",
+#     "Rasa MCP gateway")
+#   - Say in one clause what that component does and which half of
+#     PyNanoClaw it lives in (the autonomous loop, the structured agent,
+#     or the shared layer between them)
+#
+# You are not being graded on getting the "right" architecture — there
+# isn't one right answer. You are being graded on whether your description
+# is coherent and whether you have thought about which Week 1 file becomes
+# which PyNanoClaw component.
+#
+# Example of the level of detail we want:
+#   - The Planner is a strong-reasoning model (e.g. Nemotron-3-Super or
+#     Qwen3-Next-Thinking) that takes the raw task and produces an ordered
+#     list of subgoals. It lives upstream of the ReAct loop in the
+#     autonomous-loop half of PyNanoClaw, so the Executor never sees an
+#     ambiguous task.
 
 WEEK_5_ARCHITECTURE = """
 - A LangGraph research agent should handle open-ended investigation because it can decide which tools to call and adapt its reasoning at runtime.

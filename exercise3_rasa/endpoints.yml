@@ -4,20 +4,37 @@
 #   1. Tells Rasa where your custom action server is running.
 #   2. Defines the LLM model groups used by CompactLLMCommandGenerator.
 #
+# ──────────────────────────────────────────────────────────────────────────
+# FIX APPLIED 2026-04-09 — provider: openai with openai/ model prefix
+# ──────────────────────────────────────────────────────────────────────────
+# The earlier version used `provider: self-hosted`. Rasa Pro routes LLM
+# calls through litellm, and litellm does not know how to handle a
+# `self-hosted` provider — it emits the unhelpful error:
+#
+#     Provider List: https://docs.litellm.ai/docs/providers
+#
+# and the conversation breaks. Several students reported this in the
+# course Discord (thanks to Alexey Khabalov for pinning down the fix).
+#
+# The correct incantation for any OpenAI-compatible endpoint (including
+# Nebius Token Factory) is to use `provider: openai` and PREFIX the model
+# name with `openai/`. litellm then routes the call through its OpenAI
+# adapter, which is happy to talk to any `/v1/chat/completions` endpoint
+# as long as `api_base` points at it.
+# ──────────────────────────────────────────────────────────────────────────
+#
 # MODEL GROUPS
 # ------------
 # nebius_llm:
 #   The language model that reads user messages and flow descriptions
 #   to decide which flow to trigger and which slots to fill.
-#   We use Llama-3.3-70B — the same model as the rest of the exercises.
 #
 # nebius_embeddings:
 #   Used for semantic similarity when matching user input to flows
-#   (flow_retrieval in config.yml). Qwen3-Embedding-8B is a strong,
-#   fast embedding model available on Nebius.
+#   (flow_retrieval in config.yml).
 #
-# NEBIUS_KEY vs NEBIUS_API_KEY
-# ----------------------------
+# NEBIUS_KEY
+# ----------
 # This project uses ${NEBIUS_KEY} to match the root project's .env file.
 # Rasa substitutes environment variables using the ${VAR_NAME} syntax.
 
@@ -33,8 +50,8 @@ action_endpoint:
 model_groups:
   - id: nebius_llm
     models:
-      - provider: self-hosted
-        model: meta-llama/Llama-3.3-70B-Instruct
+      - provider: openai
+        model: openai/Qwen/Qwen3-32B
         api_base: "https://api.tokenfactory.nebius.com/v1"
         api_key: ${NEBIUS_KEY}
         temperature: 0.1
@@ -44,6 +61,6 @@ model_groups:
   - id: nebius_embeddings
     models:
       - provider: openai
-        model: Qwen/Qwen3-Embedding-8B
+        model: openai/Qwen/Qwen3-Embedding-8B
         api_base: "https://api.tokenfactory.nebius.com/v1"
         api_key: ${NEBIUS_KEY}

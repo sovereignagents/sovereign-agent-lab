@@ -7,6 +7,13 @@ Troubleshooting:
   "Connection refused"   → check your internet connection
   "401 Unauthorized"     → your API key is wrong or expired
   "ModuleNotFoundError"  → run `uv sync` first
+
+Model note (2026-04-13):
+  This uses Llama-3.3-70B-Instruct (the Base variant, not `_fast`).
+  Only the `_fast` variant was removed in the Nebius deprecation round;
+  the Base variant is still actively supported. If you see connection
+  errors mentioning the model string, confirm you have pulled the latest
+  main — the earlier scaffold may have referenced the wrong variant.
 """
 
 import os
@@ -37,7 +44,7 @@ try:
     answer = resp.choices[0].message.content.strip()
     if "READY" in answer.upper():
         print(f"✅  API connection OK — model replied: {answer}")
-        print(f"    Model : meta-llama/Llama-3.3-70B-Instruct")
+        print(f"    Model : meta-llama/Llama-3.3-70B-Instruct  (Base variant)")
         print(f"    Tokens: {resp.usage.total_tokens}")
         print("\nYou're ready. Start with:")
         print("    uv run python week1/exercise1_context.py")

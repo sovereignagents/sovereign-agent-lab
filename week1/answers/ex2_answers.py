@@ -24,7 +24,10 @@ TASK_A_CATERING_COST_GBP = 5600.0
 # Did the weather tool return outdoor_ok = True or False?
 TASK_A_OUTDOOR_OK = False
 
-TASK_A_NOTES = ""   # optional — anything unexpected
+# Optional — anything unexpected.
+# If you used a non-default model via RESEARCH_MODEL env var, note it here.
+# Example: "Used nvidia/nemotron-3-super-120b-a12b for the agent loop."
+TASK_A_NOTES = ""
 
 # ── Task B ─────────────────────────────────────────────────────────────────
 
@@ -90,7 +93,7 @@ graph TD;
         classDef last fill:#bfb6fc
 """
 
-# Compare the LangGraph graph to exercise3_rasa/data/rules.yml. Min 30 words.
+# Compare the LangGraph graph to exercise3_rasa/data/flows.yml. Min 30 words.
 TASK_D_COMPARISON = """
 LangGraph's mermaid graph shows that model decides whether to call a tool at runtime, then it checks results and continues. This is making LangGraph more open-ended and flexible choice. On the other hand, flows.yml describes structurued flows of conversations for Rasa agent. They are written quite explicitly and model's transitions are more controlled.
 """

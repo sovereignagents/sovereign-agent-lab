@@ -153,3 +153,7 @@ __marimo__/
 # reproducible student environments. Do not add them here.
 # uv.lock              ← intentionally tracked
 # exercise3_rasa/uv.lock  ← intentionally tracked
+
+scripts/
+_transient-files/
+tests/

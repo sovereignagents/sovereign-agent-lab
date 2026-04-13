@@ -33,13 +33,11 @@ from sovereign_agent.tools.venue_tools import (
     generate_event_flyer,
 )
 
-
 def _call(tool_fn, **kwargs) -> dict:
     """Call a @tool decorated function and parse its JSON result."""
     raw_fn = tool_fn.func if hasattr(tool_fn, "func") else tool_fn
     result = raw_fn(**kwargs)
     return json.loads(result) if isinstance(result, str) else result
-
 
 # ─── check_pub_availability ───────────────────────────────────────────────────
 
@@ -112,7 +110,6 @@ class TestCheckPubAvailability:
         parsed = json.loads(raw)
         assert isinstance(parsed, dict)
 
-
 # ─── calculate_catering_cost ──────────────────────────────────────────────────
 
 class TestCalculateCateringCost:
@@ -138,8 +135,16 @@ class TestCalculateCateringCost:
         # 3 × 33.333 = 99.999 → should round to 100.0
         assert abs(result["total_cost_gbp"] - 100.0) < 0.01
 
-
 # ─── generate_event_flyer ─────────────────────────────────────────────────────
+#
+# Note on the changed contract (2026-04-13): the flyer tool used to be a stub
+# that students had to replace with a real FLUX image call. Nebius removed
+# FLUX from the Token Factory on the same day this assignment is due, so the
+# tool now ships with a working graceful-fallback implementation that returns
+# success=True in both live and placeholder modes. The tests below assert the
+# new contract: (1) the function accepts venue_name/guest_count/event_theme,
+# (2) the prompt contains the venue name, (3) it returns a non-empty image URL,
+# (4) it never returns the legacy STUB error shape.
 
 class TestGenerateEventFlyer:
 
@@ -154,7 +159,7 @@ class TestGenerateEventFlyer:
         assert "image_url" in result, "Must have 'image_url' key"
 
     def test_prompt_includes_venue_name(self):
-        """The prompt sent to the image model should mention the venue."""
+        """The prompt should mention the venue."""
         result = _call(generate_event_flyer,
                        venue_name="The Haymarket Vaults",
                        guest_count=160,
@@ -162,28 +167,31 @@ class TestGenerateEventFlyer:
         assert "Haymarket" in result["prompt_used"], \
             "prompt_used should mention the venue name"
 
-    def test_not_stub_when_implemented(self):
+    def test_fallback_returns_success(self):
         """
-        If you've implemented the tool (removed the stub), this test should pass.
-        If it fails with 'STUB', go back and complete the TODO in venue_tools.py.
+        The graceful-fallback path must return success=True with mode='placeholder'
+        and a non-empty image_url. This replaces the old "stub detection" test.
+        If this fails, either the scaffold has been reverted to a broken stub
+        or something is raising inside the tool — check CHANGELOG.md §Changed
+        and the implementation in sovereign_agent/tools/venue_tools.py.
         """
         result = _call(generate_event_flyer,
                        venue_name="The Haymarket Vaults",
                        guest_count=160,
                        event_theme="AI Meetup")
-        # This test will FAIL until you implement the tool.
-        # That's expected — it's the signal that the task is incomplete.
-        assert "STUB" not in str(result.get("error", "")), \
-            ("generate_event_flyer still returns the stub. "
-             "Complete the TODO in sovereign_agent/tools/venue_tools.py "
-             "to replace it with a real images.generate() call.")
+        assert result.get("success") is True, \
+            ("generate_event_flyer must return success=True. "
+             "See CHANGELOG.md §Changed for the graceful-fallback contract.")
+        assert "STUB" not in str(result.get("error", "")).upper(), \
+            "generate_event_flyer must not return the legacy stub error."
 
-    def test_image_url_is_string_when_successful(self):
-        """When success=True, image_url must be a non-empty string."""
+    def test_image_url_is_non_empty_string(self):
+        """image_url must always be a non-empty string when success=True."""
         result = _call(generate_event_flyer,
                        venue_name="The Haymarket Vaults",
                        guest_count=160,
                        event_theme="AI Meetup")
-        if result.get("success"):
-            assert isinstance(result["image_url"], str)
-            assert len(result["image_url"]) > 0, "image_url should not be empty when success=True"
+        assert result.get("success") is True
+        assert isinstance(result["image_url"], str)
+        assert len(result["image_url"]) > 0, \
+            "image_url should not be empty when success=True"

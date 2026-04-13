@@ -42,11 +42,12 @@ confirm headcount, agree deposit terms, stay strictly within what Rod
 authorised. Every word could cost money or create a legal commitment. The agent
 must not improvise.
 
-You will build both of these this week, using two different architectures.
-Over the five weeks of this course you will keep extending them until, by
-Week 5, they work together as a single system: one agent researches and plans
-while the other handles high-stakes human interaction. Then you apply that same
-combined architecture to a problem from your own work.
+You will build both of these this week, using two different architectures
+that are genuinely better at their respective halves of the problem. In
+the final assignment (releases 2026-04-18) they get merged into one
+hybrid system called **PyNanoClaw**, plus a handoff bridge, memory, and
+observability. Everyone builds both halves — there are no tracks. See
+`PROGRESS.md` for the full architecture diagram.
 
 The guiding question for this week:
 
@@ -56,26 +57,31 @@ The guiding question for this week:
 
 ---
 
-## The two architectures you will build
+## The two halves of PyNanoClaw you will build this week
 
-### The Headless Automator (`sovereign_agent/`)
+### The autonomous loop (`sovereign_agent/`)
 A LangGraph agent that reasons and acts autonomously. It receives a task,
 decides its own sequence of steps, calls tools, handles failures, and returns
 a result — without human guidance at each turn. This is the right tool for
-open-ended problems where the path cannot be predetermined.
+open-ended problems where the path cannot be predetermined. In PyNanoClaw
+this becomes the half that handles the research: searching venues, checking
+weather, estimating costs.
 
-### The Digital Employee (`exercise3_rasa/`)
+### The structured agent (`exercise3_rasa/`)
 A Rasa Pro CALM agent that handles structured interactions with real people.
 Its behaviour is defined as explicit flows with deterministic business rules
 enforced in Python. This is the right tool for high-stakes conversations where
-every decision must be auditable and every constraint must be guaranteed.
+every decision must be auditable and every constraint must be guaranteed. In
+PyNanoClaw this becomes the half that handles the pub-manager call:
+confirming headcount, agreeing deposit terms, enforcing Rod's limits.
 
 Neither is universally better. They are designed for different problems. The
 skill of an agent engineer is knowing which to reach for — and how to connect
 them into a system that is both powerful and reliable.
 
-By Week 5 you will have built both, connected them through a shared tool layer
-(MCP), and adapted the combined architecture to a scenario from your own work.
+By the end of the module you will have built both and connected them
+through a shared tool layer (MCP) into PyNanoClaw, then adapted the
+combined system to a scenario from your own work.
 
 ---
 
@@ -123,12 +129,13 @@ sovereign-agent-lab/
 ├── pyproject.toml             ← project config and dependencies
 ├── .python-version            ← Python 3.14 for the main project
 ├── .env                       ← your API keys (create from .env.example)
+├── CHANGELOG.md               ← read this if you pulled updates
 │
-├── sovereign_agent/           ← THE HEADLESS AUTOMATOR
-│   │                             grows every week: tools → planning → memory → production
+├── sovereign_agent/           ← THE AUTONOMOUS LOOP (half 1 of PyNanoClaw)
+│   │                             grows into: tools → planning → memory → production
 │   ├── tools/
-│   │   ├── venue_tools.py     ← Exercise 2: implement generate_event_flyer here
-│   │   └── mcp_venue_server.py ← shared tool server (used by both agents)
+│   │   ├── venue_tools.py     ← Exercise 2: the four venue tools, already implemented
+│   │   └── mcp_venue_server.py ← shared tool server (used by both halves)
 │   ├── agents/
 │   │   └── research_agent.py  ← the core autonomous loop
 │   └── tests/
@@ -142,8 +149,8 @@ sovereign-agent-lab/
 │   ├── answers/               ← YOU FILL THESE IN
 │   └── outputs/               ← auto-generated when you run exercises
 │
-└── exercise3_rasa/            ← THE DIGITAL EMPLOYEE
-    │                             grows every week: flows → voice → RAG → production
+└── exercise3_rasa/            ← THE STRUCTURED AGENT (half 2 of PyNanoClaw)
+    │                             grows into: flows → voice → RAG → production
     ├── pyproject.toml         ← Rasa Pro needs Python 3.10
     ├── .python-version
     ├── data/
@@ -298,18 +305,30 @@ Fill in `week1/answers/ex1_answers.py`.
 
 ---
 
-### Exercise 2 — LangGraph Research Agent (the Automator)
+### Exercise 2 — LangGraph Research Agent (the autonomous loop)
 
-You build the autonomous research loop. This becomes the core of the Headless
-Automator that grows through Week 5.
+You run the autonomous research loop and observe what it does. This becomes
+the research half of PyNanoClaw in the final assignment.
 
-**Before running Task B**, implement `generate_event_flyer` in
-`sovereign_agent/tools/venue_tools.py`. Find the `# ── TODO` block.
+**About Task B — the flyer tool.** The scaffold now ships with a working
+`generate_event_flyer` implementation that uses a graceful fallback pattern.
+The original version of this task asked you to write a direct call to the
+Nebius FLUX image endpoint, but Nebius removed FLUX from the Token Factory
+on 2026-04-13 — the same day this assignment is due. See `CHANGELOG.md`
+§Changed for the full story.
+
+The new Task B is about *reading* the implementation and *observing* what it
+does. The tool tries a live image provider if `FLYER_IMAGE_MODEL` is set in
+your `.env`, and otherwise returns a deterministic `placehold.co` URL with
+`mode: "placeholder"`. Both paths are valid. You record which one your run
+took in `ex2_answers.py` → `TASK_B_MODE`. If you want to wire in a
+non-Nebius image provider (OpenAI, Replicate, local SDXL), just set
+`FLYER_IMAGE_MODEL` in `.env` and the tool will use it — no code changes.
 
 ```bash
 make ex2        # run everything
 make ex2-a      # Task A: main brief
-make ex2-b      # Task B: flyer tool (implement TODO first)
+make ex2-b      # Task B: flyer tool (runs the fallback or live path)
 make ex2-c      # Task C: failure modes
 make ex2-d      # Task D: graph — paste output into mermaid.live
 ```
@@ -318,10 +337,10 @@ Fill in `week1/answers/ex2_answers.py`.
 
 ---
 
-### Exercise 3 — Rasa Pro CALM Agent (the Digital Employee)
+### Exercise 3 — Rasa Pro CALM Agent (the structured agent)
 
-You build the structured confirmation agent. This becomes the core of the
-Digital Employee that grows through Week 5.
+You build the structured confirmation agent. This becomes the structured
+half of PyNanoClaw in the final assignment.
 
 Requires **two terminals** open at the same time.
 
@@ -356,8 +375,9 @@ Fill in `week1/answers/ex3_answers.py`.
 
 ### Exercise 4 — Shared MCP Server
 
-You connect both agents to the same tool server. This is the bridge that will
-let the Automator and the Digital Employee share capabilities in Week 5.
+You connect both halves to the same tool server. This is the bridge that
+lets the autonomous loop and the structured agent share capabilities —
+and, in the final assignment, makes PyNanoClaw possible.
 
 ```bash
 make ex4
@@ -381,20 +401,20 @@ Runs all checks and shows a final checklist. Fix every ✗ before submitting.
 
 ## Where this is going
 
-Each week adds a new layer to both agents simultaneously:
+Week 1 lays both foundations. Week 2's session adds real tools and
+deepens MCP. The final assignment (releases 2026-04-18) merges everything
+into PyNanoClaw.
 
-| Week | Headless Automator | Digital Employee |
-|------|--------------------|-----------------|
-| **1** | Basic ReAct loop + venue tools | CALM confirmation flow + business rules |
-| **2** | Real web search + file operations | MCP tool access + live venue data |
-| **3** | Planner-Executor split (DeepSeek R1 + Llama 70B) | Advanced CALM flows + conditional branching |
-| **4** | CLAUDE.md memory + vector store | RAG knowledge base |
-| **5** | Observability + safety guardrails | Voice pipeline (Whisper → Rasa → TTS) |
+| Phase | What lands |
+|------|------------|
+| **Week 1 (now)** | Autonomous loop + venue tools; CALM confirmation flow + business rules; shared MCP server. Both halves exist, neither knows about the other yet. |
+| **Week 2 session** | Real web search, file operations, deeper MCP. Both halves learn to pull tools from the same server. No separate homework. |
+| **Final assignment** | PyNanoClaw: planner/executor split, memory (filesystem + RAG), handoff bridge between the two halves, observability, optional voice pipeline. You apply it to a scenario from your own work. |
 
-By Week 5 both agents are production-grade and connected through a shared MCP
-tool layer. You will then spend the final session adapting the combined system
-to a scenario from your own work — replacing Edinburgh pubs with whatever your
-job actually needs automated.
+By the end of the module PyNanoClaw is production-grade and connected
+through a shared MCP tool layer. You then spend the final session adapting
+it to a scenario from your own work — replacing Edinburgh pubs with
+whatever your job actually needs automated.
 
 ---
 
@@ -449,6 +469,12 @@ Open `.env` and replace the placeholder with your actual key. No quotes.
 **`ModuleNotFoundError: No module named 'sovereign_agent'`**
 Run `make install` from the project root (where the `Makefile` is).
 
+**"No tool calls were made" in Exercise 2 or 4**
+This was the Llama-on-Nebius tool-calling bug — fixed in the 2026-04-13
+release. Pull the latest main (`git fetch upstream && git merge upstream/main`),
+then re-run. The default model is now `Qwen/Qwen3-32B`, which emits native
+tool calls correctly. See `CHANGELOG.md` §Fixed for the full story.
+
 **Exercise 3: `Connection refused` when running `make ex3-chat`**
 `make ex3-actions` is not running. Start it in another terminal and wait for
 `Action endpoint is up and running` before proceeding.
@@ -456,6 +482,11 @@ Run `make install` from the project root (where the `Makefile` is).
 **Exercise 3: `make ex3-train` hangs**
 Rasa downloads embedding models on first train (~300–500 MB). Check internet
 connection and disk space, then try again.
+
+**Exercise 3: `Provider List: https://docs.litellm.ai/docs/providers`**
+This was the litellm provider routing bug — fixed in the 2026-04-13 release.
+Pull the latest main AND re-run `make ex3-train` (the model group is baked
+into the trained model at train time, so you must retrain after pulling).
 
 **Exercise 3: licence key error**
 Check `.env` has `RASA_PRO_LICENSE=your-key` with no quotes and no spaces.
@@ -482,11 +513,29 @@ Do not use `pip install` directly — it bypasses the lock file.
 
 ## Submitting
 
-Submit your fork URL in the course portal. The grader checks:
+Your fork IS your submission. Commit and push to `main` — the grader reads
+directly from `github.com/YOUR-USERNAME/sovereign-agent-lab` at the deadline
+timestamp. There is no separate portal upload, no form, no file attachment.
+
+```bash
+git checkout main
+git merge <your-branch>          # if you worked on a branch
+make check-submit                # last sanity pass
+git push origin main
+```
+
+**Deadline:** 2026-04-13 23:59 UTC−12 (equivalently **2026-04-14 12:00 noon
+London time**). Commits on `main` after that timestamp are not graded.
+Feature branches are not graded.
+
+The grader checks:
 - `week1/outputs/*.json` — proof you ran the exercises
 - `week1/answers/*.py` — your filled-in answers
-- `sovereign_agent/tools/venue_tools.py` — your `generate_event_flyer`
-- `exercise3_rasa/actions/actions.py` — your Task B cutoff guard
+- `sovereign_agent/tools/venue_tools.py` — the flyer tool returns a valid
+  success dict (either live-provider mode or placeholder fallback)
+- `exercise3_rasa/actions/actions.py` — your Task B cutoff guard is
+  uncommented
 
-Run `make check-submit` before submitting — it tells you exactly what is
-missing. See `GRADING_OVERVIEW.md` for the full 30/40/30 point breakdown.
+Run `make check-submit` before pushing — it tells you exactly what is
+missing. See `GRADING_OVERVIEW.md` for the full 30/40/30 point breakdown
+and `CHANGELOG.md` for the list of fixes landed since the initial release.
