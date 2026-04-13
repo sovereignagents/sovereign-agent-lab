@@ -53,6 +53,14 @@ TASK_B_PROMPT_USED = (
     "Warm lighting, Scottish architecture background, clean modern typography."
 )
 
+# Why did the agent's behaviour NOT change when Nebius removed FLUX?
+# One sentence. This is the point of the lesson.
+TASK_B_WHY_AGENT_SURVIVED = """
+The agent calls generate_event_flyer and reads the JSON response — it has no
+knowledge of which model runs behind the tool, so swapping FLUX for any other
+image backend leaves the agent's reasoning loop completely unchanged.
+"""
+
 # ── Task C ─────────────────────────────────────────────────────────────────
 
 # Scenario 1: first choice unavailable
