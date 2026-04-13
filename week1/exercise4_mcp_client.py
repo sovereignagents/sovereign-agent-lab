@@ -36,6 +36,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -73,7 +74,28 @@ def _make_mcp_caller(tool_name: str, server_script: str):
                     await session.initialize()
                     result = await session.call_tool(tool_name, kwargs)
                     return result.content[0].text if result.content else "{}"
-        return asyncio.run(_inner())
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(_inner())
+
+        output = {}
+        error = {}
+
+        def runner() -> None:
+            try:
+                output["value"] = asyncio.run(_inner())
+            except Exception as exc:
+                error["value"] = exc
+
+        thread = threading.Thread(target=runner)
+        thread.start()
+        thread.join()
+
+        if "value" in error:
+            raise error["value"]
+        return output.get("value", "{}")
     call.__name__ = tool_name
     return call
 
@@ -112,11 +134,66 @@ def extract_trace(result: dict) -> list:
         if isinstance(content, list):
             for block in content:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
-                    trace.append({"role": "tool_call", "tool": block["name"],
-                                  "args": block.get("input", {})})
+                    trace.append({
+                        "role": "tool_call",
+                        "tool": block["name"],
+                        "args": block.get("input", {}),
+                    })
+        elif isinstance(content, str) and content.startswith("{") and content.endswith("}"):
+            try:
+                block = json.loads(content)
+            except json.JSONDecodeError:
+                block = None
+            if isinstance(block, dict) and block.get("type") == "function":
+                trace.append({
+                    "role": "tool_call",
+                    "tool": block["name"],
+                    "args": block.get("parameters", {}).get("kwargs", {}),
+                })
         elif content:
             trace.append({"role": role, "content": str(content)})
     return trace
+
+
+def run_query(agent, llm, tools: list, query: str) -> list:
+    result = agent.invoke({"messages": [("user", query)]})
+    trace = extract_trace(result)
+
+    has_tool_result = any(entry["role"] == "tool" for entry in trace)
+    if has_tool_result:
+        return trace
+
+    tool_map = {tool.name: tool for tool in tools}
+    tool_results = []
+    rebuilt_trace = [{"role": "human", "content": query}]
+
+    for entry in trace:
+        if entry["role"] != "tool_call":
+            rebuilt_trace.append(entry)
+            continue
+
+        rebuilt_trace.append(entry)
+        try:
+            tool_output = tool_map[entry["tool"]].func(**entry.get("args", {}))
+        except Exception as exc:
+            tool_output = json.dumps({"success": False, "error": str(exc)})
+        rebuilt_trace.append({"role": "tool", "content": str(tool_output)})
+        tool_results.append({
+            "tool": entry["tool"],
+            "args": entry.get("args", {}),
+            "result": tool_output,
+        })
+
+    if tool_results:
+        response = llm.invoke(
+            "Use the tool results below to answer the user's query.\n"
+            "Do not invent facts that are not present in the tool outputs.\n\n"
+            f"QUERY:\n{query}\n\n"
+            f"TOOL_RESULTS:\n{json.dumps(tool_results, indent=2)}"
+        )
+        rebuilt_trace.append({"role": "ai", "content": str(response.content)})
+
+    return rebuilt_trace
 
 
 def print_trace(trace: list) -> None:
@@ -153,8 +230,7 @@ async def main() -> None:
     print(f"\n{'=' * 65}")
     print("  Query 1 — Search + Detail Fetch")
     print(f"{'=' * 65}\n")
-    r1     = agent.invoke({"messages": [("user", q1)]})
-    trace1 = extract_trace(r1)
+    trace1 = run_query(agent, llm, tools, q1)
     print_trace(trace1)
     output["queries"]["query_1"] = {"query": q1, "trace": trace1}
 
@@ -163,8 +239,7 @@ async def main() -> None:
     print(f"\n{'=' * 65}")
     print("  Query 2 — Impossible Constraint")
     print(f"{'=' * 65}\n")
-    r2     = agent.invoke({"messages": [("user", q2)]})
-    trace2 = extract_trace(r2)
+    trace2 = run_query(agent, llm, tools, q2)
     print_trace(trace2)
     output["queries"]["query_2"] = {"query": q2, "trace": trace2}
 

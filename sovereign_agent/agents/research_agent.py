@@ -87,6 +87,25 @@ TOOLS = [
 # Build the agent once at module load time.
 # Rebuilding it on every call would be wasteful.
 _agent = create_react_agent(llm, TOOLS)
+_tool_map = {tool.name: tool for tool in TOOLS}
+
+
+def _run_tool(tool_name: str, args: dict) -> str:
+    tool = _tool_map[tool_name]
+    return tool.invoke(args)
+
+
+def _synthesize_final_answer(task: str, tool_results: list[dict]) -> str:
+    prompt = (
+        "You are the final response stage of a research agent.\n"
+        "Use the tool outputs below to answer the user's task.\n"
+        "Do not invent facts beyond the tool results.\n"
+        "If the task cannot be completed with the available tools, say so clearly.\n\n"
+        f"TASK:\n{task}\n\n"
+        f"TOOL_RESULTS:\n{json.dumps(tool_results, indent=2)}"
+    )
+    response = llm.invoke(prompt)
+    return str(getattr(response, "content", "")).strip()
 
 
 # ─── Public interface ─────────────────────────────────────────────────────────
@@ -117,18 +136,24 @@ def run_research_agent(task: str, max_turns: int = 8) -> dict:
     tool_calls_made = []
     full_trace      = []
     final_answer    = ""
+    saw_tool_result = False
 
     for m in result["messages"]:
         role    = getattr(m, "type", "unknown")
         content = m.content
 
-        # Tool-call messages have structured list content
-        if isinstance(content, list):
+        # Some models return tool calls as structured blocks, others as a JSON string.
+        if isinstance(content, list) or (
+            isinstance(content, str) and content.startswith("[") and content.endswith("]")
+        ):
+            if isinstance(content, str):
+                content = [json.loads(block) for block in json.loads(content)]
+
             for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_use":
+                if isinstance(block, dict) and block.get("type") in ["tool_use", "function"]:
                     entry = {
                         "tool": block["name"],
-                        "args": block.get("input", {}),
+                        "args": block.get("input", block.get("parameters", {})),
                     }
                     tool_calls_made.append(entry)
                     full_trace.append({"role": "tool_call", **entry})
@@ -136,8 +161,31 @@ def run_research_agent(task: str, max_turns: int = 8) -> dict:
 
         if content:
             full_trace.append({"role": role, "content": str(content)})
+            if role == "tool":
+                saw_tool_result = True
             if role == "ai":
                 final_answer = str(content)
+
+    if tool_calls_made and not saw_tool_result:
+        tool_results = []
+        full_trace = [{"role": "human", "content": task}]
+
+        for entry in tool_calls_made:
+            full_trace.append({"role": "tool_call", **entry})
+            try:
+                tool_output = _run_tool(entry["tool"], entry["args"])
+            except Exception as exc:
+                tool_output = json.dumps({"success": False, "error": str(exc)})
+            tool_results.append({
+                "tool": entry["tool"],
+                "args": entry["args"],
+                "result": tool_output,
+            })
+            full_trace.append({"role": "tool", "content": str(tool_output)})
+
+        final_answer = _synthesize_final_answer(task, tool_results)
+        if final_answer:
+            full_trace.append({"role": "ai", "content": final_answer})
 
     return {
         "final_answer":    final_answer,
