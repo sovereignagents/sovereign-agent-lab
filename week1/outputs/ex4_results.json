@@ -1,0 +1,35 @@
+{
+  "server_script": "/Users/sumerki/projects/ml/sovereign-agent-lab/sovereign_agent/tools/mcp_venue_server.py",
+  "tools_discovered": [
+    "search_venues",
+    "get_venue_details"
+  ],
+  "queries": {
+    "query_1": {
+      "query": "Find Edinburgh venues for 160 guests with vegan options and give me the full address of the best match.",
+      "trace": [
+        {
+          "role": "human",
+          "content": "Find Edinburgh venues for 160 guests with vegan options and give me the full address of the best match."
+        },
+        {
+          "role": "ai",
+          "content": "{\"type\": \"function\", \"name\": \"search_venues\", \"parameters\": {\"kwargs\": {\"min_capacity\": 160, \"requires_vegan\": true}}}"
+        }
+      ]
+    },
+    "query_2": {
+      "query": "Find a venue for 300 people with vegan options.",
+      "trace": [
+        {
+          "role": "human",
+          "content": "Find a venue for 300 people with vegan options."
+        },
+        {
+          "role": "ai",
+          "content": "{\"type\": \"function\", \"name\": \"search_venues\", \"parameters\": {\"kwargs\": {\"min_capacity\": 300, \"requires_vegan\": true}}}"
+        }
+      ]
+    }
+  }
+}
