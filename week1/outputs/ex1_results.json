@@ -1,0 +1,79 @@
+{
+  "model_main": "meta-llama/Llama-3.3-70B-Instruct",
+  "model_small": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+  "part_a": {
+    "PLAIN": {
+      "answer": "The Haymarket Vaults",
+      "tokens": 180,
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "correct": true,
+      "condition": "PLAIN"
+    },
+    "XML": {
+      "answer": "The Albanach",
+      "tokens": 251,
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "correct": true,
+      "condition": "XML"
+    },
+    "SANDWICH": {
+      "answer": "The Albanach",
+      "tokens": 289,
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "correct": true,
+      "condition": "SANDWICH"
+    }
+  },
+  "part_b": {
+    "PLAIN": {
+      "answer": "The Haymarket Vaults",
+      "tokens": 213,
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "correct": true,
+      "condition": "PLAIN"
+    },
+    "XML": {
+      "answer": "The Albanach",
+      "tokens": 302,
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "correct": true,
+      "condition": "XML"
+    },
+    "SANDWICH": {
+      "answer": "The Albanach",
+      "tokens": 340,
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "correct": true,
+      "condition": "SANDWICH"
+    }
+  },
+  "part_c_was_run": true,
+  "part_c": {
+    "PLAIN": {
+      "answer": "The Haymarket Vaults",
+      "tokens": 188,
+      "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+      "correct": true,
+      "condition": "PLAIN"
+    },
+    "XML": {
+      "answer": "The Haymarket Vaults",
+      "tokens": 278,
+      "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+      "correct": true,
+      "condition": "XML"
+    },
+    "SANDWICH": {
+      "answer": "The Haymarket Vaults",
+      "tokens": 316,
+      "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+      "correct": true,
+      "condition": "SANDWICH"
+    }
+  },
+  "summary": {
+    "part_a_all_correct": true,
+    "part_b_all_correct": true,
+    "structural_effect_seen_in": "none_see_part_c"
+  }
+}

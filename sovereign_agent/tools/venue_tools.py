@@ -3,53 +3,41 @@ sovereign_agent/tools/venue_tools.py
 =====================================
 The venue tool layer for your Sovereign Agent.
 
-────────────────────────────────────────────────────────────────────────────
-NOTE ON generate_event_flyer  (updated 2026-04-09)
-────────────────────────────────────────────────────────────────────────────
-The original version of this exercise asked you to call Nebius's FLUX
-image-generation endpoint. Nebius has since announced the deprecation of
-all text-to-image models on their Token Factory (removed 2026-04-13 — the
-same day this assignment is due). See:
+This file is part of the persistent sovereign_agent/ project.
+It will be imported by your research agent in Exercise 2,
+and the same tools will be exposed via MCP in Exercise 4.
 
-    https://docs.tokenfactory.nebius.com/other-capabilities/deprecation-info
+In Week 2 you will ADD more tools to this file (web_search, file_ops).
+The interface you establish here — each tool as a @tool decorated function
+returning a JSON string — stays the same throughout the course.
 
-So we have changed what this tool teaches.
+WHY TOOLS RETURN JSON STRINGS
+------------------------------
+The LangGraph agent feeds tool results back into the model's context as text.
+JSON strings are:
+  - Human-readable (the model can parse them)
+  - Consistent (always the same shape, success or failure)
+  - Type-preserving (integers stay integers, booleans stay booleans)
 
-The new version of the tool shows you a pattern that matters more in
-production than "call an API": graceful degradation. The tool tries to
-generate a real image if a provider is available, and if it is not, it
-returns a well-structured "flyer brief" with a deterministic placeholder
-URL. Either way the tool contract is satisfied: the agent gets back a
-`success=True` dict with a `prompt_used` and an `image_url`, and the
-downstream flow keeps working.
+Never return a plain string like "The pub is full." — the model can't
+reliably extract structured data from that. Never raise an exception —
+that crashes the agent loop. Always return a structured dict as a JSON string.
 
-This is a more honest lesson. Real agent tools fail, providers deprecate
-models, networks flake. A tool that raises on failure takes the whole
-loop down. A tool that returns a structured "degraded-but-usable" result
-keeps the agent moving.
+WEEK 1 TASK
+-----------
+These functions are provided as working stubs. Your task in Exercise 2
+is to use them inside a LangGraph agent, not to modify them here.
 
-Task B, revised:
-    Read through the implementation below and understand how the fallback
-    works. Then, in ex2_answers.py, record:
-      - whether your flyer call hit the real provider or the fallback
-      - what URL was returned
-      - one sentence on why the agent did not need to change behaviour
-        when the provider disappeared.
-
-If you implemented Task B the old way — with a direct client.images.generate
-call — your implementation is still valid for grading. Add a try/except
-around it so it survives the April-13 deprecation and you are done.
-────────────────────────────────────────────────────────────────────────────
+The one thing you WILL do here: make sure you understand what each function
+returns and when it returns an error — because the agent's ability to reason
+about failures depends entirely on what these functions return.
 """
 
-from __future__ import annotations
-
-import hashlib
 import json
-import os
-
 import requests
 from langchain_core.tools import tool
+import os
+from openai import OpenAI
 
 # ─── Venue database ───────────────────────────────────────────────────────────
 # In Week 2 this gets replaced with a real web search.
@@ -101,13 +89,11 @@ def check_pub_availability(
     """
     venue = VENUES.get(pub_name)
     if not venue:
-        return json.dumps(
-            {
-                "success": False,
-                "error": f"Venue not found: '{pub_name}'",
-                "known_venues": list(VENUES.keys()),
-            }
-        )
+        return json.dumps({
+            "success": False,
+            "error": f"Venue not found: '{pub_name}'",
+            "known_venues": list(VENUES.keys()),
+        })
 
     meets_all = (
         venue["capacity"] >= required_capacity
@@ -115,17 +101,15 @@ def check_pub_availability(
         and venue["status"] == "available"
     )
 
-    return json.dumps(
-        {
-            "success": True,
-            "pub_name": pub_name,
-            "address": venue["address"],
-            "capacity": venue["capacity"],
-            "vegan": venue["vegan"],
-            "status": venue["status"],
-            "meets_all_constraints": meets_all,
-        }
-    )
+    return json.dumps({
+        "success": True,
+        "pub_name": pub_name,
+        "address": venue["address"],
+        "capacity": venue["capacity"],
+        "vegan": venue["vegan"],
+        "status": venue["status"],
+        "meets_all_constraints": meets_all,
+    })
 
 
 @tool
@@ -151,26 +135,17 @@ def get_edinburgh_weather() -> str:
         data = resp.json().get("current", {})
         code = data.get("weather_code", -1)
         descriptions = {
-            0: "Clear sky",
-            1: "Mainly clear",
-            2: "Partly cloudy",
-            3: "Overcast",
-            45: "Fog",
-            61: "Light rain",
-            63: "Moderate rain",
-            65: "Heavy rain",
-            80: "Rain showers",
-            95: "Thunderstorm",
+            0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy",
+            3: "Overcast", 45: "Fog", 61: "Light rain", 63: "Moderate rain",
+            65: "Heavy rain", 80: "Rain showers", 95: "Thunderstorm",
         }
-        return json.dumps(
-            {
-                "success": True,
-                "temp_c": data.get("temperature_2m"),
-                "description": descriptions.get(code, f"Code {code}"),
-                "precipitation_mm": data.get("precipitation"),
-                "outdoor_ok": code in {0, 1, 2},
-            }
-        )
+        return json.dumps({
+            "success": True,
+            "temp_c": data.get("temperature_2m"),
+            "description": descriptions.get(code, f"Code {code}"),
+            "precipitation_mm": data.get("precipitation"),
+            "outdoor_ok": code in {0, 1, 2},
+        })
     except requests.exceptions.Timeout:
         return json.dumps({"success": False, "error": "Weather API timed out"})
     except Exception as exc:
@@ -185,80 +160,16 @@ def calculate_catering_cost(guests: int, price_per_head_gbp: float) -> str:
     Returns total_cost_gbp, guests, and price_per_head_gbp.
     """
     if guests <= 0 or price_per_head_gbp < 0:
-        return json.dumps(
-            {
-                "success": False,
-                "error": "guests must be > 0 and price_per_head_gbp must be >= 0",
-            }
-        )
-    return json.dumps(
-        {
-            "success": True,
-            "guests": guests,
-            "price_per_head_gbp": price_per_head_gbp,
-            "total_cost_gbp": round(guests * price_per_head_gbp, 2),
-        }
-    )
-
-
-# ─── Flyer generation with graceful fallback ────────────────────────────────
-# Implementation notes for students reading this file:
-#
-#   1. We build the prompt first. The prompt is deterministic — the same
-#      (venue, guests, theme) always produces the same prompt string. That
-#      gives us a stable hash for the placeholder URL in the fallback path.
-#
-#   2. We *try* to hit a real image-generation endpoint if one is configured
-#      via FLYER_IMAGE_MODEL. If it works, great. If it fails for any reason
-#      (deprecation, rate limit, network, wrong key), we catch the exception
-#      and fall through to the placeholder path. We DO NOT raise.
-#
-#   3. The placeholder path returns a deterministic URL from a free
-#      placeholder service, plus the full prompt so the human reviewing the
-#      trace knows what the flyer would have looked like. This matters for
-#      auditing: "agent said it generated a flyer" should be inspectable.
-#
-# Why is this the right shape for an agent tool?
-#   Because the agent loop cannot recover from exceptions inside tools. If
-#   this function raised, the whole ReAct loop would halt mid-task. By
-#   always returning a structured success dict, we keep the agent's control
-#   flow intact regardless of what is happening at the provider.
-
-def _build_flyer_prompt(venue_name: str, guest_count: int, event_theme: str) -> str:
-    return (
-        f"Professional event flyer for {event_theme} at {venue_name}, "
-        f"Edinburgh. {guest_count} guests tonight. Warm lighting, "
-        f"Scottish architecture background, clean modern typography."
-    )
-
-
-def _attempt_real_image_generation(prompt: str) -> str | None:
-    """
-    Try to generate a real image. Return the URL on success, or None on
-    any failure — we never raise from this helper.
-
-    Enable this path by setting FLYER_IMAGE_MODEL in your .env to the name
-    of an image-generation model your provider still supports. As of the
-    2026-04-13 FLUX deprecation on Nebius, there is no default image model
-    configured — the tool will transparently use the placeholder path.
-    """
-    model = os.getenv("FLYER_IMAGE_MODEL", "").strip()
-    if not model:
-        return None
-    try:
-        from openai import OpenAI
-
-        client = OpenAI(
-            base_url=os.getenv(
-                "FLYER_IMAGE_BASE_URL",
-                "https://api.tokenfactory.nebius.com/v1/",
-            ),
-            api_key=os.getenv("NEBIUS_KEY"),
-        )
-        response = client.images.generate(model=model, prompt=prompt, n=1)
-        return response.data[0].url
-    except Exception:
-        return None
+        return json.dumps({
+            "success": False,
+            "error": "guests must be > 0 and price_per_head_gbp must be >= 0",
+        })
+    return json.dumps({
+        "success": True,
+        "guests": guests,
+        "price_per_head_gbp": price_per_head_gbp,
+        "total_cost_gbp": round(guests * price_per_head_gbp, 2),
+    })
 
 
 @tool
@@ -271,39 +182,63 @@ def generate_event_flyer(venue_name: str, guest_count: int, event_theme: str) ->
     guest_count: confirmed number of attendees
     event_theme: short description, e.g. 'AI Meetup, professional, Scottish'
     """
-    prompt = _build_flyer_prompt(venue_name, guest_count, event_theme)
+    # ── TODO: Replace this stub with a real images.generate() call ───────────
+    #
+    # 1. Import OpenAI at the top of this file:
+    #      from openai import OpenAI
+    #      import os
+    #
+    # 2. Create the client:
+    #      client = OpenAI(
+    #          base_url="https://api.tokenfactory.nebius.com/v1/",
+    #          api_key=os.getenv("NEBIUS_KEY"),
+    #      )
+    #
+    # 3. Build the prompt — include venue name, guest count, event theme:
+    #      prompt = (
+    #          f"Professional event flyer for {event_theme} at {venue_name}, "
+    #          f"Edinburgh. {guest_count} guests tonight. Warm lighting, "
+    #          f"Scottish architecture background, clean modern typography."
+    #      )
+    #
+    # 4. Call the image API:
+    #      response = client.images.generate(
+    #          model="black-forest-labs/flux-schnell",
+    #          prompt=prompt,
+    #          n=1,
+    #      )
+    #      url = response.data[0].url
+    #
+    # 5. Return a dict with at minimum: success, prompt_used, image_url
+    #    On failure, return: success=False, error=str(e), prompt_used, image_url=""
+    #
+    # When implemented, the mechanical check in grade.py will pass automatically.
+    # ──────────────────────────────────────────────────────────────────────────
 
-    # Path 1: real image generation (if a provider is configured)
-    real_url = _attempt_real_image_generation(prompt)
-    if real_url:
-        return json.dumps(
-            {
-                "success": True,
-                "mode": "live",
-                "prompt_used": prompt,
-                "image_url": real_url,
-                "note": "Generated via configured image provider.",
-            }
-        )
 
-    # Path 2: deterministic placeholder (graceful fallback)
-    # A deterministic hash of the prompt keeps the placeholder URL stable
-    # for a given (venue, guests, theme) — useful when diffing agent runs.
-    digest = hashlib.sha1(prompt.encode("utf-8")).hexdigest()[:12]
-    placeholder_url = (
-        f"https://placehold.co/1200x628/1a1a2e/eaeaea"
-        f"?text={venue_name.replace(' ', '+')}+%7C+{guest_count}+guests"
-        f"&id={digest}"
-    )
-    return json.dumps(
-        {
-            "success": True,
-            "mode": "placeholder",
-            "prompt_used": prompt,
-            "image_url": placeholder_url,
-            "note": (
-                "No live image model configured (FLYER_IMAGE_MODEL unset "
-                "or provider unavailable). Returned deterministic placeholder."
-            ),
-        }
-    )
+
+    client = OpenAI(
+         base_url="https://api.tokenfactory.nebius.com/v1/",
+         api_key=os.getenv("NEBIUS_KEY"),
+     )
+
+
+    prompt = (
+         f"Professional event flyer for {event_theme} at {venue_name}, "
+         f"Edinburgh. {guest_count} guests tonight. Warm lighting, "
+         f"Scottish architecture background, clean modern typography."
+     )
+
+    response = client.images.generate(
+         model="black-forest-labs/flux-schnell",
+         prompt=prompt,
+         n=1,
+     )
+    url = response.data[0].url
+
+    return json.dumps({
+        "success": True,
+        "error": "STUB — see TODO in sovereign_agent/tools/venue_tools.py",
+        "prompt_used": prompt,
+        "image_url": url,
+    })

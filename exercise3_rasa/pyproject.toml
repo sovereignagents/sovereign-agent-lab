@@ -32,6 +32,9 @@ build-backend = "setuptools.build_meta"
 packages = ["actions"]
 
 [tool.uv]
+constraint-dependencies = [
+    "faiss-cpu>=1.7.4,<1.8.0",
+]
 # uv manages this environment independently from the main sovereign_agent env.
 # Run `uv sync` from inside exercise3_rasa/ to set up.
 
